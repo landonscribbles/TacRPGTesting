@@ -10,6 +10,8 @@ public class CharacterActionsMenuController : MonoBehaviour {
     private Text characterSP;
     private Image characterPortrait;
     private Action highlightTileAction;
+    private Action attackButtonAction;
+    private Action endTurnButtonAction;
 
     void Start() {
         characterName = GameObject.Find("CharacterActionsName").GetComponent<Text>();
@@ -44,6 +46,8 @@ public class CharacterActionsMenuController : MonoBehaviour {
 
     public void ResetMenu() {
         // Reset all setting on menu for new character to use this
+        highlightTileAction = null;
+        attackButtonAction = null;
     }
 
     public void SetMoveButtonCallback(Action highlightTilesMethod) {
@@ -52,6 +56,22 @@ public class CharacterActionsMenuController : MonoBehaviour {
 
     public void HighlightMovementTiles() {
         highlightTileAction();
+    }
+
+    public void SetAttackButtonCallback(Action attackButtonMethod) {
+        attackButtonAction = attackButtonMethod;
+    }
+
+    public void AttackButtonPressed() {
+        attackButtonAction();
+    }
+
+    public void SetEndTurnButtonCallback(Action endTurnMethod) {
+        endTurnButtonAction = endTurnMethod;
+    }
+
+    public void EndTurnButtonPressed() {
+        endTurnButtonAction();
     }
 
 }

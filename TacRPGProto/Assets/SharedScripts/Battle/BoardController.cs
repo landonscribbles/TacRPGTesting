@@ -18,6 +18,9 @@ public class BoardController : MonoBehaviour {
     [Header("Highlight MovementRange")]
     public float cycleStepMoveRange;
 
+    [Header("Highlight AttackRange")]
+    public float cycleStepAttackRange;
+
     public PlayerCharactersController playerCharactersController;
 
     private BattleController battleController;
@@ -88,6 +91,28 @@ public class BoardController : MonoBehaviour {
             foreach (TileController tile in tiles) {
                 if (tile.gridLocation.x == tileLocation.x && tile.gridLocation.y == tileLocation.y) {
                     tile.DisableMoveHighlight();
+                }
+            }
+        }
+        tilesHighlighted = false;
+    }
+
+    public void SetAttackRangeHighlightTiles(List<Vector2> tilesToHighlight) {
+        foreach (Vector2 tileLocation in tilesToHighlight) {
+            foreach (TileController tile in tiles) {
+                if (tile.gridLocation.x == tileLocation.x && tile.gridLocation.y == tileLocation.y) {
+                    tile.EnableAttackRangeHighlight();
+                }
+            }
+        }
+        tilesHighlighted = true;
+    }
+
+    public void RemoveAttackRangeHighlightTiles(List<Vector2> tilesToHighlight) {
+        foreach (Vector2 tileLocation in tilesToHighlight) {
+            foreach (TileController tile in tiles) {
+                if (tile.gridLocation.x == tileLocation.x && tile.gridLocation.y == tileLocation.y) {
+                    tile.DisableAttackHighlight();
                 }
             }
         }

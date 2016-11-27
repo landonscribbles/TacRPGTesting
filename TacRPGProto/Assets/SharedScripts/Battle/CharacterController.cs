@@ -10,6 +10,8 @@ public class CharacterController : BaseCharacterController, CharacterControllerI
     private BattleController battleController;
 
     private bool movementTilesHighlighted;
+    private bool attackTilesHighlighted;
+    private List<Vector2> attackableTiles;
 
     // If pathing becomes a major bottleneck a thread could be setup to compute pathing to a target,
     // also an event listener could be put in place for when the target moves to re-queue up the job to get a new pathing
@@ -27,6 +29,7 @@ public class CharacterController : BaseCharacterController, CharacterControllerI
         currentSkillPoints = maxSkillPoints;
         currentStandingTile = boardController.GetTile(gridLocation);
         currentStandingTile.SetCharacterOnTile();
+        attackableTiles = new List<Vector2>();
     }
 
     void Update() {
@@ -36,6 +39,8 @@ public class CharacterController : BaseCharacterController, CharacterControllerI
                 ToggleMoveIfTileIsReachable(clickedTile);
             } else if (isMoving) {
                 MoveToDestination();
+            } else if (!isMoving && attackTilesHighlighted) {
+
             }
         }
 
@@ -49,6 +54,42 @@ public class CharacterController : BaseCharacterController, CharacterControllerI
             // FIXME: Take action here
         }
         */
+    }
+
+    private int GetMeleeAttackDamage() {
+        return 10;
+    }
+
+    public void EndTurn() {
+        // This bool later will be set in a different place
+        isActive = false;
+        turnInitiative = 0;
+        RemoveAttackableTilesHighlight();
+        characterActionsMenuController.Deactivate();
+    }
+
+    public void AttackButtonPressed() {
+        if (!hasTakenAction && !attackTilesHighlighted) {
+            HighlightAttackableTiles();
+        }
+    }
+
+    public void HighlightAttackableTiles() {
+        HashSet<Vector2> attackableSet = BattleUtils.Calculate2DTileRange(gridLocation, 2);
+        foreach (Vector2 gridPoint in attackableSet.ToList()) {
+            if (gridPoint.x == gridLocation.x && gridPoint.y == gridLocation.y) {
+                continue;
+            }
+            attackableTiles.Add(gridPoint);
+        }
+        boardController.SetAttackRangeHighlightTiles(attackableTiles);
+        attackTilesHighlighted = true;
+    }
+
+    public void RemoveAttackableTilesHighlight() {
+        boardController.RemoveAttackRangeHighlightTiles(attackableTiles);
+        attackTilesHighlighted = false;
+
     }
 
     public void HighlightMoveableTiles() {
@@ -121,9 +162,6 @@ public class CharacterController : BaseCharacterController, CharacterControllerI
                 // set moveDestination to null?
                 isMoving = false;
                 hasMoved = true;
-                // This bool later will be set in a different place
-                isActive = false;
-                turnInitiative = 0;
                 currentStandingTile = boardController.GetTile(gridLocation);
                 currentStandingTile.SetCharacterOnTile();
                 return;
@@ -145,12 +183,17 @@ public class CharacterController : BaseCharacterController, CharacterControllerI
         // This should activate the character turn menu: Move, Attack, Etc.
         isActive = true;
         hasMoved = false;
+        movementTilesHighlighted = false;
+        attackTilesHighlighted = false;
+        isMoving = false;
         characterActionsMenuController.Activate();
         characterActionsMenuController.ResetMenu();
         characterActionsMenuController.SetCharacterName(characterName);
         characterActionsMenuController.SetHitPoints(currentHitPoints, maxHitPoints);
         characterActionsMenuController.SetSkillPoints(currentSkillPoints, maxSkillPoints);
         characterActionsMenuController.SetMoveButtonCallback(HighlightMoveableTiles);
+        characterActionsMenuController.SetAttackButtonCallback(AttackButtonPressed);
+        characterActionsMenuController.SetEndTurnButtonCallback(EndTurn);
         // Temporary
         SpriteRenderer spriteRenderer = gameObject.GetComponent<SpriteRenderer>();
         characterActionsMenuController.SetPortrait(spriteRenderer.sprite);
