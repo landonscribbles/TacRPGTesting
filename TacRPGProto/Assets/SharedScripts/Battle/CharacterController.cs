@@ -6,9 +6,10 @@ using System.Linq;
 public class CharacterController : BaseCharacterController, CharacterControllerInterface {
 
     private BoardController boardController;
-    // private BattleUtils battleUtils;
     private CharacterActionsMenuController characterActionsMenuController;
     private BattleController battleController;
+
+    private bool movementTilesHighlighted;
 
     // If pathing becomes a major bottleneck a thread could be setup to compute pathing to a target,
     // also an event listener could be put in place for when the target moves to re-queue up the job to get a new pathing
@@ -16,12 +17,12 @@ public class CharacterController : BaseCharacterController, CharacterControllerI
     void Start() {
         battleController = GameObject.Find("BattleController").GetComponent<BattleController>();
         boardController = GameObject.Find("BoardController").GetComponent<BoardController>();
-        // battleUtils = GameObject.Find("BattleUtils").GetComponent<BattleUtils>();
         characterActionsMenuController = GameObject.Find("CharacterActionsMenu").GetComponent<CharacterActionsMenuController>();
         isMoving = false;
         isActive = false;
         hasMoved = false;
         hasTakenAction = false;
+        movementTilesHighlighted = false;
         currentHitPoints = maxHitPoints;
         currentSkillPoints = maxSkillPoints;
         currentStandingTile = boardController.GetTile(gridLocation);
@@ -29,6 +30,16 @@ public class CharacterController : BaseCharacterController, CharacterControllerI
     }
 
     void Update() {
+        if(isActive) {
+            if (!hasMoved && !isMoving && movementTilesHighlighted) {
+                GameObject clickedTile = CheckMovementTileForClick();
+                ToggleMoveIfTileIsReachable(clickedTile);
+            } else if (isMoving) {
+                MoveToDestination();
+            }
+        }
+
+        /*
         if (isActive && !hasMoved && !isMoving) {
             GameObject clickedTile = CheckMovementTileForClick();
             ToggleMoveIfTileIsReachable(clickedTile);
@@ -37,6 +48,20 @@ public class CharacterController : BaseCharacterController, CharacterControllerI
         } else if (isActive && !isMoving && hasMoved) {
             // FIXME: Take action here
         }
+        */
+    }
+
+    public void HighlightMoveableTiles() {
+        if (!hasMoved && !isMoving && !movementTilesHighlighted) {
+            moveableTiles = BattleUtils.Calculate2DTileRange(gridLocation, moveRange);
+            boardController.SetMoveRangeHighlightTiles(moveableTiles.ToList());
+            movementTilesHighlighted = true;
+        }
+    }
+
+    public void RemoveMoveableTilesHighlight() {
+        boardController.RemoveMoveRangeHighlightTiles(moveableTiles.ToList());
+        movementTilesHighlighted = false;
     }
 
     private void ToggleMoveIfTileIsReachable(GameObject clickedTile) {
@@ -48,7 +73,7 @@ public class CharacterController : BaseCharacterController, CharacterControllerI
                 movementPath = BattleUtils.GetPathRoute(gridLocation, clickedTileController.gridLocation, moveRange, moveableTiles);
                 Vector3 gridWorldPosition = boardController.GetWorldPositionFromTileGrid(movementPath[0]);
                 moveDestination = new Vector3(gridWorldPosition.x, gridWorldPosition.y, battleController.characterZLevel);
-                boardController.RemoveMoveRangeHighlightTiles(moveableTiles.ToList());
+                RemoveMoveableTilesHighlight();
                 isMoving = true;
             }
         }
@@ -120,16 +145,16 @@ public class CharacterController : BaseCharacterController, CharacterControllerI
         // This should activate the character turn menu: Move, Attack, Etc.
         isActive = true;
         hasMoved = false;
+        characterActionsMenuController.Activate();
+        characterActionsMenuController.ResetMenu();
         characterActionsMenuController.SetCharacterName(characterName);
         characterActionsMenuController.SetHitPoints(currentHitPoints, maxHitPoints);
         characterActionsMenuController.SetSkillPoints(currentSkillPoints, maxSkillPoints);
+        characterActionsMenuController.SetMoveButtonCallback(HighlightMoveableTiles);
         // Temporary
         SpriteRenderer spriteRenderer = gameObject.GetComponent<SpriteRenderer>();
         characterActionsMenuController.SetPortrait(spriteRenderer.sprite);
         //
-
-        moveableTiles = BattleUtils.Calculate2DTileRange(gridLocation, moveRange);
-        boardController.SetMoveRangeHighlightTiles(moveableTiles.ToList());
         // TODO here
         Debug.Log(characterName + "'s Turn!");
     }

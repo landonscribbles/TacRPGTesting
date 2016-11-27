@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 using System.Collections;
 using UnityEngine.UI;
 
@@ -8,6 +9,7 @@ public class CharacterActionsMenuController : MonoBehaviour {
     private Text characterHP;
     private Text characterSP;
     private Image characterPortrait;
+    private Action highlightTileAction;
 
     void Start() {
         characterName = GameObject.Find("CharacterActionsName").GetComponent<Text>();
@@ -38,6 +40,18 @@ public class CharacterActionsMenuController : MonoBehaviour {
 
     public void SetCharacterName(string characterNameToSet) {
         characterName.text = characterNameToSet;
+    }
+
+    public void ResetMenu() {
+        // Reset all setting on menu for new character to use this
+    }
+
+    public void SetMoveButtonCallback(Action highlightTilesMethod) {
+        highlightTileAction = highlightTilesMethod;
+    }
+
+    public void HighlightMovementTiles() {
+        highlightTileAction();
     }
 
 }
