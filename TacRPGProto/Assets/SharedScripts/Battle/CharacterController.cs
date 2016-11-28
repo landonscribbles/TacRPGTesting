@@ -6,9 +6,12 @@ using System.Linq;
 public class CharacterController : BaseCharacterController, CharacterControllerInterface {
 
     private BoardController boardController;
-    // private BattleUtils battleUtils;
     private CharacterActionsMenuController characterActionsMenuController;
     private BattleController battleController;
+
+    private bool movementTilesHighlighted;
+    private bool attackTilesHighlighted;
+    private List<Vector2> attackableTiles;
 
     // If pathing becomes a major bottleneck a thread could be setup to compute pathing to a target,
     // also an event listener could be put in place for when the target moves to re-queue up the job to get a new pathing
@@ -16,27 +19,84 @@ public class CharacterController : BaseCharacterController, CharacterControllerI
     void Start() {
         battleController = GameObject.Find("BattleController").GetComponent<BattleController>();
         boardController = GameObject.Find("BoardController").GetComponent<BoardController>();
-        // battleUtils = GameObject.Find("BattleUtils").GetComponent<BattleUtils>();
         characterActionsMenuController = GameObject.Find("CharacterActionsMenu").GetComponent<CharacterActionsMenuController>();
         isMoving = false;
         isActive = false;
         hasMoved = false;
         hasTakenAction = false;
+        movementTilesHighlighted = false;
         currentHitPoints = maxHitPoints;
         currentSkillPoints = maxSkillPoints;
         currentStandingTile = boardController.GetTile(gridLocation);
         currentStandingTile.SetCharacterOnTile();
+        attackableTiles = new List<Vector2>();
     }
 
     void Update() {
-        if (isActive && !hasMoved && !isMoving) {
-            GameObject clickedTile = CheckMovementTileForClick();
-            ToggleMoveIfTileIsReachable(clickedTile);
-        } else if (isActive && isMoving) {
-            MoveToDestination();
-        } else if (isActive && !isMoving && hasMoved) {
-            // FIXME: Take action here
+        if(isActive) {
+            if (!hasMoved && !isMoving && movementTilesHighlighted) {
+                GameObject clickedTile = CheckMovementTileForClick();
+                ToggleMoveIfTileIsReachable(clickedTile);
+            } else if (isMoving) {
+                MoveToDestination();
+            } else if (!isMoving && attackTilesHighlighted) {
+                OppositionCharacterController clickedOppoChar = CheckAttackTilesForClick();
+                if (clickedOppoChar != null) {
+                    Debug.Log("Clicked on: " + clickedOppoChar.characterName);
+                    RemoveAttackableTilesHighlight();
+                    clickedOppoChar.TakeDamage(GetMeleeAttackDamage(), BattleUtils.AttackType.physical, BattleUtils.DamageTypes.physical);
+                }
+            }
         }
+    }
+
+    private int GetMeleeAttackDamage() {
+        return 10;
+    }
+
+    public void EndTurn() {
+        // This bool later will be set in a different place
+        isActive = false;
+        turnInitiative = 0;
+        RemoveAttackableTilesHighlight();
+        characterActionsMenuController.Deactivate();
+    }
+
+    public void AttackButtonPressed() {
+        if (!hasTakenAction && !attackTilesHighlighted) {
+            HighlightAttackableTiles();
+        }
+    }
+
+    public void HighlightAttackableTiles() {
+        HashSet<Vector2> attackableSet = BattleUtils.Calculate2DTileRange(gridLocation, 2);
+        foreach (Vector2 gridPoint in attackableSet.ToList()) {
+            if (gridPoint.x == gridLocation.x && gridPoint.y == gridLocation.y) {
+                continue;
+            }
+            attackableTiles.Add(gridPoint);
+        }
+        boardController.SetAttackRangeHighlightTiles(attackableTiles);
+        attackTilesHighlighted = true;
+    }
+
+    public void RemoveAttackableTilesHighlight() {
+        boardController.RemoveAttackRangeHighlightTiles(attackableTiles);
+        attackTilesHighlighted = false;
+
+    }
+
+    public void HighlightMoveableTiles() {
+        if (!hasMoved && !isMoving && !movementTilesHighlighted) {
+            moveableTiles = BattleUtils.Calculate2DTileRange(gridLocation, moveRange);
+            boardController.SetMoveRangeHighlightTiles(moveableTiles.ToList());
+            movementTilesHighlighted = true;
+        }
+    }
+
+    public void RemoveMoveableTilesHighlight() {
+        boardController.RemoveMoveRangeHighlightTiles(moveableTiles.ToList());
+        movementTilesHighlighted = false;
     }
 
     private void ToggleMoveIfTileIsReachable(GameObject clickedTile) {
@@ -48,7 +108,7 @@ public class CharacterController : BaseCharacterController, CharacterControllerI
                 movementPath = BattleUtils.GetPathRoute(gridLocation, clickedTileController.gridLocation, moveRange, moveableTiles);
                 Vector3 gridWorldPosition = boardController.GetWorldPositionFromTileGrid(movementPath[0]);
                 moveDestination = new Vector3(gridWorldPosition.x, gridWorldPosition.y, battleController.characterZLevel);
-                boardController.RemoveMoveRangeHighlightTiles(moveableTiles.ToList());
+                RemoveMoveableTilesHighlight();
                 isMoving = true;
             }
         }
@@ -60,7 +120,6 @@ public class CharacterController : BaseCharacterController, CharacterControllerI
             Vector2 ray = Camera.main.ScreenToWorldPoint(Input.mousePosition);
             RaycastHit2D[] rayHits = Physics2D.RaycastAll(ray, Vector2.zero);
             if (rayHits.Length != 0) {
-                Debug.Log("Checking movement tile for click");
                 foreach (RaycastHit2D singleHit in rayHits) {
                     if (singleHit.transform.tag == "MovementTile") {
                         string logline = string.Format(
@@ -82,6 +141,27 @@ public class CharacterController : BaseCharacterController, CharacterControllerI
         return clickedTile;
     }
 
+    private OppositionCharacterController CheckAttackTilesForClick() {
+        OppositionCharacterController clickedTarget = null;
+        if (Input.GetMouseButtonDown(0)) {
+            Vector2 ray = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            RaycastHit2D[] rayHits = Physics2D.RaycastAll(ray, Vector2.zero);
+            if (rayHits.Length != 0) {
+                foreach (RaycastHit2D singleHit in rayHits) {
+                    GameObject clickedGameObject = singleHit.transform.gameObject;
+                    OppositionCharacterController oppoTargetController = clickedGameObject.GetComponent<OppositionCharacterController>();
+                    if (oppoTargetController != null) {
+                        if (attackableTiles.Contains(oppoTargetController.gridLocation)) {
+                            clickedTarget = oppoTargetController;
+                            return clickedTarget;
+                        }
+                    }
+                }
+            }
+        }
+        return clickedTarget;
+    }
+
     public void MoveToDestination() {
         transform.position = Vector3.MoveTowards(
             transform.position,
@@ -96,9 +176,6 @@ public class CharacterController : BaseCharacterController, CharacterControllerI
                 // set moveDestination to null?
                 isMoving = false;
                 hasMoved = true;
-                // This bool later will be set in a different place
-                isActive = false;
-                turnInitiative = 0;
                 currentStandingTile = boardController.GetTile(gridLocation);
                 currentStandingTile.SetCharacterOnTile();
                 return;
@@ -120,16 +197,21 @@ public class CharacterController : BaseCharacterController, CharacterControllerI
         // This should activate the character turn menu: Move, Attack, Etc.
         isActive = true;
         hasMoved = false;
+        movementTilesHighlighted = false;
+        attackTilesHighlighted = false;
+        isMoving = false;
+        characterActionsMenuController.Activate();
+        characterActionsMenuController.ResetMenu();
         characterActionsMenuController.SetCharacterName(characterName);
         characterActionsMenuController.SetHitPoints(currentHitPoints, maxHitPoints);
         characterActionsMenuController.SetSkillPoints(currentSkillPoints, maxSkillPoints);
+        characterActionsMenuController.SetMoveButtonCallback(HighlightMoveableTiles);
+        characterActionsMenuController.SetAttackButtonCallback(AttackButtonPressed);
+        characterActionsMenuController.SetEndTurnButtonCallback(EndTurn);
         // Temporary
         SpriteRenderer spriteRenderer = gameObject.GetComponent<SpriteRenderer>();
         characterActionsMenuController.SetPortrait(spriteRenderer.sprite);
         //
-
-        moveableTiles = BattleUtils.Calculate2DTileRange(gridLocation, moveRange);
-        boardController.SetMoveRangeHighlightTiles(moveableTiles.ToList());
         // TODO here
         Debug.Log(characterName + "'s Turn!");
     }
