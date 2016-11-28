@@ -40,20 +40,14 @@ public class CharacterController : BaseCharacterController, CharacterControllerI
             } else if (isMoving) {
                 MoveToDestination();
             } else if (!isMoving && attackTilesHighlighted) {
-
+                OppositionCharacterController clickedOppoChar = CheckAttackTilesForClick();
+                if (clickedOppoChar != null) {
+                    Debug.Log("Clicked on: " + clickedOppoChar.characterName);
+                    RemoveAttackableTilesHighlight();
+                    clickedOppoChar.TakeDamage(GetMeleeAttackDamage(), BattleUtils.AttackType.physical, BattleUtils.DamageTypes.physical);
+                }
             }
         }
-
-        /*
-        if (isActive && !hasMoved && !isMoving) {
-            GameObject clickedTile = CheckMovementTileForClick();
-            ToggleMoveIfTileIsReachable(clickedTile);
-        } else if (isActive && isMoving) {
-            MoveToDestination();
-        } else if (isActive && !isMoving && hasMoved) {
-            // FIXME: Take action here
-        }
-        */
     }
 
     private int GetMeleeAttackDamage() {
@@ -126,7 +120,6 @@ public class CharacterController : BaseCharacterController, CharacterControllerI
             Vector2 ray = Camera.main.ScreenToWorldPoint(Input.mousePosition);
             RaycastHit2D[] rayHits = Physics2D.RaycastAll(ray, Vector2.zero);
             if (rayHits.Length != 0) {
-                Debug.Log("Checking movement tile for click");
                 foreach (RaycastHit2D singleHit in rayHits) {
                     if (singleHit.transform.tag == "MovementTile") {
                         string logline = string.Format(
@@ -146,6 +139,27 @@ public class CharacterController : BaseCharacterController, CharacterControllerI
             }
         }
         return clickedTile;
+    }
+
+    private OppositionCharacterController CheckAttackTilesForClick() {
+        OppositionCharacterController clickedTarget = null;
+        if (Input.GetMouseButtonDown(0)) {
+            Vector2 ray = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            RaycastHit2D[] rayHits = Physics2D.RaycastAll(ray, Vector2.zero);
+            if (rayHits.Length != 0) {
+                foreach (RaycastHit2D singleHit in rayHits) {
+                    GameObject clickedGameObject = singleHit.transform.gameObject;
+                    OppositionCharacterController oppoTargetController = clickedGameObject.GetComponent<OppositionCharacterController>();
+                    if (oppoTargetController != null) {
+                        if (attackableTiles.Contains(oppoTargetController.gridLocation)) {
+                            clickedTarget = oppoTargetController;
+                            return clickedTarget;
+                        }
+                    }
+                }
+            }
+        }
+        return clickedTarget;
     }
 
     public void MoveToDestination() {

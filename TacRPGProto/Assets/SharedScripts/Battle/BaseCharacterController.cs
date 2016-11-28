@@ -52,20 +52,23 @@ public class BaseCharacterController : MonoBehaviour {
     // FIXME: Later create a method here to calculate resistances based on class/gear/etc.
 
     public void TakeDamage(int damageAmount, BattleUtils.AttackType attackType, BattleUtils.DamageTypes damageType) {
-        int attackRole = Random.Range(0, 100);
+        int attackRoll = Random.Range(0, 100);
         if (attackType == BattleUtils.AttackType.physical || attackType == BattleUtils.AttackType.ranged) {
-            if (physicalDodge > attackRole) {
+            if (physicalDodge > attackRoll) {
                 // FIXME: Indicate the attack was dodged here
+                Debug.Log("Attack was dodged!");
                 return;
             }
         } else if (attackType == BattleUtils.AttackType.magical) {
-            if (magicDodge > attackRole) {
+            if (magicDodge > attackRoll) {
                 // FIXME: Indicate attack was dodged
                 return;
             }
         }
         int actualDamage = CalculateDamageResistance(damageAmount, damageType);
+        Debug.Log("Actual damage was: " + actualDamage);
         currentHitPoints -= actualDamage;
+        Debug.Log(characterName + " took damage. Max hitpoints: " + maxHitPoints + " Current hitpoints: " + currentHitPoints);
     }
 
     protected int CalculateDamageResistance(int rawDamageAmount, BattleUtils.DamageTypes damageType) {
@@ -81,7 +84,8 @@ public class BaseCharacterController : MonoBehaviour {
             resistanceType = new TypeResistance(damageType, 0);
         }
         float resistancePercent = resistanceType.resistanceAmount / 100.0f;
-        float actualDamage = rawDamageAmount * resistancePercent;
+        float damageResisted = rawDamageAmount * resistancePercent;
+        float actualDamage = rawDamageAmount - damageResisted;
         return (int)actualDamage;
     }
 }
